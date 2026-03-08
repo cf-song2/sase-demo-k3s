@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smb
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smb
+  template:
+    metadata:
+      labels:
+        app: smb
+    spec:
+      containers:
+      - name: samba
+        image: dockurr/samba:latest
+        ports:
+        - containerPort: 445
+        env:
+        - name: USER
+          value: "demo"
+        - name: PASS
+          value: "demo"
+        volumeMounts:
+        - name: smb-data
+          mountPath: /share
+      volumes:
+      - name: smb-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smb
+  namespace: demo
+spec:
+  type: ClusterIP
+  clusterIP: 10.43.0.45
+  selector:
+    app: smb
+  ports:
+  - protocol: TCP
+    port: 445
+    targetPort: 445

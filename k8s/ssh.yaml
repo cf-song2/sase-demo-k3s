@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssh
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ssh
+  template:
+    metadata:
+      labels:
+        app: ssh
+    spec:
+      containers:
+      - name: openssh-server
+        image: linuxserver/openssh-server:latest
+        ports:
+        - containerPort: 2222
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: "Asia/Seoul"
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: USER_PASSWORD
+          value: "demo"
+        - name: USER_NAME
+          value: "demo"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssh
+  namespace: demo
+spec:
+  type: ClusterIP
+  clusterIP: 10.43.0.22
+  selector:
+    app: ssh
+  ports:
+  - protocol: TCP
+    port: 22
+    targetPort: 2222

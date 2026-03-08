@@ -1,0 +1,24 @@
+# Kubernetes secrets
+credentials.json
+*.pem
+*.key
+.env
+*.json
+k8s/cloudflared/secret.yaml
+
+# Cloudflare credentials
+cloudflared-creds/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

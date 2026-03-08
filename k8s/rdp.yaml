@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rdp
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rdp
+  template:
+    metadata:
+      labels:
+        app: rdp
+    spec:
+      containers:
+      - name: ubuntu-xrdp
+        image: danielguerra/ubuntu-xrdp:latest
+        ports:
+        - containerPort: 3389
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rdp
+  namespace: demo
+spec:
+  type: ClusterIP
+  clusterIP: 10.43.0.39
+  selector:
+    app: rdp
+  ports:
+  - protocol: TCP
+    port: 3389
+    targetPort: 3389
