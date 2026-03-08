@@ -134,6 +134,7 @@ EOF
 - Subdomain: `web-demo`
 - Domain: `your-domain.com`
 - Service: `http://web.demo.svc.cluster.local:80`
+  + 이 외 RDP/SSH는 브라우저 랜더링 가능 (단 RDP는 윈도우 베이스이기에 해당 데모에서는 불가능합니다.)
 
 **Private Network 추가:**
 - Tunnels → demo-tunnel → Private Networks
