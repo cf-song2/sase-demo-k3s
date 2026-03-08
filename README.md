@@ -5,21 +5,21 @@ Cloudflare Zero Trust 데모 환경 구축 프로젝트
 ## 아키텍처
 
 ```
-Client VM (Ubuntu Desktop + WARP)
+Client VM (macOS UTM + WARP)
         │
         │ WARP Tunnel
         │
 Cloudflare Edge
         │
-Cloudflare Tunnel
+Cloudflare Tunnel (Token-based)
         │
 cloudflared Pod (Kubernetes)
         │
 Kubernetes Cluster (k3s)
- ├── web service (HTTP)
- ├── ssh service
- ├── rdp service
- └── smb service
+ ├── web service (nginx)
+ ├── ssh service (openssh-server)
+ ├── rdp service (rdesktop)
+ └── smb service (samba)
 ```
 
 ### 접근 방식
@@ -41,7 +41,7 @@ Kubernetes Cluster (k3s)
 - **역할**: k3s, Kubernetes workloads, cloudflared tunnel
 
 ### Client VM
-- **OS**: Ubuntu Desktop 22.04 ARM
+- **OS**: macOS (UTM VM)
 - **CPU**: 2 cores
 - **RAM**: 4GB
 - **Disk**: 30GB
@@ -54,18 +54,18 @@ zero-trust-demo/
 ├── README.md
 ├── .gitignore
 ├── scripts/
-│   ├── install-k3s.sh
-│   └── deploy.sh
+│   ├── install-k3s.sh       # k3s 설치 + kubectl alias 설정
+│   └── deploy.sh            # Kustomize 기반 배포
 └── k8s/
-    ├── namespace.yaml
-    ├── web.yaml
-    ├── ssh.yaml
-    ├── rdp.yaml
-    ├── smb.yaml
-    ├── kustomization.yaml
+    ├── namespace.yaml       # demo 네임스페이스
+    ├── web.yaml             # nginx (ClusterIP)
+    ├── ssh.yaml             # openssh-server (ClusterIP: 10.43.0.22)
+    ├── rdp.yaml             # rdesktop (ClusterIP: 10.43.0.39)
+    ├── smb.yaml             # samba (ClusterIP: 10.43.0.45)
+    ├── kustomization.yaml   # Kustomize 설정
     └── cloudflared/
-        ├── configmap.yaml
-        └── deployment.yaml
+        ├── secret.yaml.example  # Tunnel token 예제
+        └── deployment.yaml      # cloudflared (replicas: 2)
 ```
 
 ## 네트워크 설계
@@ -90,61 +90,60 @@ zero-trust-demo/
 k3s 설치:
 
 ```bash
-cd zero-trust-demo
+cd ~/sase-demo-k3s
 chmod +x scripts/install-k3s.sh
 ./scripts/install-k3s.sh
 ```
 
-설치 확인:
+설치 후 `k` alias가 자동 설정됩니다:
 
 ```bash
-kubectl get nodes
-kubectl get pods -A
+k get nodes
+k get pods -A
 ```
 
 ### 2. Cloudflare Tunnel 설정
 
-Tunnel 생성:
+Cloudflare Zero Trust Dashboard에서:
+
+1. **Access → Tunnels → Create a tunnel**
+2. Tunnel 이름: `demo-tunnel`
+3. Connector: **Cloudflared**
+4. **토큰 복사** (eyJhIjoiNWFiNGU5Z... 형태)
+
+Secret 파일 생성:
 
 ```bash
-cloudflared tunnel create demo-tunnel
+cat > k8s/cloudflared/secret.yaml <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tunnel-token
+  namespace: demo
+type: Opaque
+stringData:
+  token: YOUR_TUNNEL_TOKEN_HERE
+EOF
 ```
 
-생성된 credentials.json 파일을 저장합니다.
-
-ConfigMap 수정 (`k8s/cloudflared/configmap.yaml`):
-
-```yaml
-tunnel: YOUR_TUNNEL_ID
-```
-
-```yaml
-- hostname: web-demo.example.com
-```
-
-Secret 생성:
-
-```bash
-kubectl create namespace demo
-kubectl create secret generic cloudflared-creds \
-  --from-file=credentials.json=/path/to/credentials.json \
-  -n demo
-```
+`YOUR_TUNNEL_TOKEN_HERE`를 실제 토큰으로 교체하세요.
 
 ### 3. Cloudflare Dashboard 설정
 
-Public Hostname 추가:
-- Subdomain: web-demo
-- Domain: example.com
-- Service: http://web.demo.svc.cluster.local:80
+**Public Hostname 추가:**
+- Subdomain: `web-demo`
+- Domain: `your-domain.com`
+- Service: `http://web.demo.svc.cluster.local:80`
 
-Private Network 추가:
-- CIDR: 10.43.0.0/16
+**Private Network 추가:**
+- Tunnels → demo-tunnel → Private Networks
+- CIDR: `10.43.0.0/16`
+- 저장
 
 ### 4. 배포
 
 ```bash
-cd zero-trust-demo
+cd ~/sase-demo-k3s
 chmod +x scripts/deploy.sh
 ./scripts/deploy.sh
 ```
@@ -152,13 +151,32 @@ chmod +x scripts/deploy.sh
 배포 확인:
 
 ```bash
-kubectl get pods -n demo
-kubectl get svc -n demo
+k get pods -n demo
+k get svc -n demo
 ```
 
-## Client VM 설정
+예상 출력:
+```
+NAME                          READY   STATUS    RESTARTS   AGE
+cloudflared-xxxxxxxxxx-xxxxx  1/1     Running   0          1m
+cloudflared-xxxxxxxxxx-xxxxx  1/1     Running   0          1m
+web-xxxxxxxxxx-xxxxx          1/1     Running   0          1m
+ssh-xxxxxxxxxx-xxxxx          1/1     Running   0          1m
+rdp-xxxxxxxxxx-xxxxx          1/1     Running   0          1m
+smb-xxxxxxxxxx-xxxxx          1/1     Running   0          1m
+```
 
-WARP 클라이언트를 설치하고 Zero Trust 조직에 연결합니다.
+## Client VM 설정 (macOS)
+
+### WARP 클라이언트 설치
+
+1. [Cloudflare WARP for macOS](https://1.1.1.1/) 다운로드
+2. 설치 후 실행
+3. Settings → Preferences → Account → Login to Cloudflare Zero Trust
+4. 조직 이름 입력: `YOUR_TEAM_NAME`
+5. 브라우저에서 인증 완료
+
+또는 CLI:
 
 ```bash
 warp-cli register
@@ -177,41 +195,51 @@ https://web-demo.example.com
 
 ### SSH (WARP Private Network)
 
+macOS Terminal:
+
 ```bash
 ssh demo@10.43.0.22
 ```
 
-Username: demo / Password: demo
+- **Username**: `demo`
+- **Password**: `demo`
 
 ### RDP (WARP Private Network)
 
-```bash
-remmina
-```
+macOS Microsoft Remote Desktop:
 
-Server: 10.43.0.39:3389
+1. App Store에서 "Microsoft Remote Desktop" 설치
+2. Add PC
+3. PC name: `10.43.0.39`
+4. User account: Add User Account
+   - Username: `abc`
+   - Password: `abc`
+5. Connect
 
 ### SMB (WARP Private Network)
 
-```
-smb://10.43.0.45
-```
+macOS Finder:
 
-Username: demo / Password: demo
+1. Finder → Go → Connect to Server (⌘K)
+2. Server Address: `smb://10.43.0.45`
+3. Connect
+4. Credentials:
+   - Username: `demo`
+   - Password: `demo`
 
 ## 트러블슈팅
 
 Pod 상태 확인:
 
 ```bash
-kubectl describe pod <pod-name> -n demo
-kubectl logs <pod-name> -n demo
+k describe pod <pod-name> -n demo
+k logs <pod-name> -n demo
 ```
 
-cloudflared 설정 확인:
+cloudflared 로그 확인:
 
 ```bash
-kubectl get configmap cloudflared-config -n demo -o yaml
+k logs -l app=cloudflared -n demo --tail=50
 ```
 
 WARP 상태 확인:
@@ -225,7 +253,7 @@ warp-cli status
 리소스 삭제:
 
 ```bash
-kubectl delete namespace demo
+k delete namespace demo
 ```
 
 k3s 제거:

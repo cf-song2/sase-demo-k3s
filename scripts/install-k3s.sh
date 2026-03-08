@@ -23,11 +23,18 @@ sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
 sudo chown $(id -u):$(id -g) ~/.kube/config
 export KUBECONFIG=~/.kube/config
 
+# Setup kubectl alias
+echo "Setting up kubectl alias (k)..."
+echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
+echo 'alias k="sudo kubectl"' >> ~/.bashrc
+source ~/.bashrc
+
 # Verify installation
 echo "Verifying k3s installation..."
-kubectl get nodes
-kubectl get pods -A
+sudo kubectl get nodes
+sudo kubectl get pods -A
 
 echo ""
 echo "=== k3s installation complete ==="
-echo "You can now use kubectl to interact with the cluster"
+echo "You can now use 'k' or 'sudo kubectl' to interact with the cluster"
+echo "Example: k get pods -A"
