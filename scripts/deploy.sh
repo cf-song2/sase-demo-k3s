@@ -11,7 +11,7 @@ fi
 
 # Check if tunnel-token secret exists
 echo "Checking for tunnel token..."
-if ! kubectl get secret tunnel-token -n demo &> /dev/null; then
+if ! sudo kubectl get secret tunnel-token -n demo &> /dev/null; then
     echo ""
     echo "Warning: tunnel-token secret not found"
     echo "The secret will be created from k8s/cloudflared/secret.yaml"
@@ -26,12 +26,12 @@ fi
 
 # Deploy using kustomize
 echo "Deploying resources..."
-kubectl apply -k k8s/
+sudo kubectl apply -k k8s/
 
 # Wait for deployments to be ready
 echo ""
 echo "Waiting for deployments to be ready..."
-kubectl wait --for=condition=available --timeout=300s \
+sudo kubectl wait --for=condition=available --timeout=300s \
   deployment/web \
   deployment/ssh \
   deployment/rdp \
@@ -42,9 +42,9 @@ kubectl wait --for=condition=available --timeout=300s \
 # Show status
 echo ""
 echo "=== Deployment Status ==="
-kubectl get pods -n demo
+sudo kubectl get pods -n demo
 echo ""
-kubectl get svc -n demo
+sudo kubectl get svc -n demo
 
 echo ""
 echo "=== Deployment complete ==="
